@@ -158,7 +158,7 @@ Stop() {
 
       For k, v in LogArr
         s .= "`n" v "`n"
-      s .= "`n`n}`n"
+      s .= "`n`n}`nExitApp()`n`n" ActionKey "::ExitApp()`n"
       s := RegExReplace(s, "\R", "`n")
       if (FileExist(LogFile))
         FileDelete(LogFile)
