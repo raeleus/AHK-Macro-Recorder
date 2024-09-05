@@ -181,13 +181,18 @@ PlayKeyAction() {
   #SuspendExempt
   if (Recording || Playing)
     Stop()
-  ahk := A_IsCompiled ? A_ScriptDir "\AutoHotkey.exe" : A_AhkPath
+  ahk := A_AhkPath
   if (!FileExist(ahk))
   {
     MsgBox("Can't Find " ahk " !", "Error", 4096)
     Exit()
   }
-  Run(ahk " /restart `"" LogFile "`"")
+
+  if (A_IsCompiled) {
+    Run(ahk " /script /restart `"" LogFile "`"")
+  } else {
+    Run(ahk " /restart `"" LogFile "`"")
+  }
   return
 }
 
