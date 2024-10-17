@@ -148,7 +148,7 @@ Stop() {
     if (LogArr.Length > 0) {
       UpdateSettings()
 
-      s := ";Press " ActionKey " to play. Hold to record. Long hold to edit`n;#####SETTINGS#####`n;What is the preferred method of recording mouse coordinates (screen,window,relative)`n;MouseMode=" MouseMode "`n;Record sleep between input actions (true,false)`n;RecordSleep=" RecordSleep "`nLoop(1)`n{`n`nSetKeyDelay(30)`nSendMode(`"Event`")`nSetTitleMatchMode(2)"
+      s := ";Press " ActionKey " to play. Hold to record. Long hold to edit`n;#####SETTINGS#####`n;What is the preferred method of recording mouse coordinates (screen,window,relative)`n;MouseMode=" MouseMode "`n;Record sleep between input actions (true,false)`n;RecordSleep=" RecordSleep "`nLoop(1)`n{`n`nStartingValue := 0`ni := RegRead(`"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`", StartingValue)`nRegWrite(i + 1, `"REG_DWORD`", `"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`")`n`nSetKeyDelay(30)`nSendMode(`"Event`")`nSetTitleMatchMode(2)"
 
       if (MouseMode == "window") {
         s .= "`n;CoordMode(`"Mouse`", `"Screen`")`nCoordMode(`"Mouse`", `"Window`")`n"
@@ -199,6 +199,8 @@ PlayKeyAction() {
 EditKeyAction() {
   #SuspendExempt
   Stop()
+  SplitPath(LogFile, &LogFileName)
+  RegDelete("HKEY_CURRENT_USER\SOFTWARE\" LogFileName, "i")
   Run("`"" EnvGet("LocalAppData") "\Programs\Microsoft VS Code\Code.exe`" `"" LogFile "`"")
   return
 }
