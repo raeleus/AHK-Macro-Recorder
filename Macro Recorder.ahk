@@ -200,7 +200,11 @@ EditKeyAction() {
   #SuspendExempt
   Stop()
   SplitPath(LogFile, &LogFileName)
-  RegDelete("HKEY_CURRENT_USER\SOFTWARE\" LogFileName, "i")
+  try {
+    RegDelete("HKEY_CURRENT_USER\SOFTWARE\" LogFileName, "i")
+  } catch OSError as err {
+    
+  }
   Run("`"" EnvGet("LocalAppData") "\Programs\Microsoft VS Code\Code.exe`" `"" LogFile "`"")
   return
 }
