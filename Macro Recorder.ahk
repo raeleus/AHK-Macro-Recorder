@@ -6,15 +6,17 @@ CoordMode("ToolTip")
 SetTitleMatchMode(2)
 DetectHiddenWindows(true)
 ;--------------------------
+userName := A_UserName
+userDocsPath := "C:\Users\" userName "\Documents"
 if (A_Args.Length < 1) {
-  A_Args.Push("~Record1.ahk")
+  A_Args.Push("MacroRecorder-Record1.ahk")
 }
 
 if (A_Args.Length < 2) {
   A_Args.Push("F1")
 }
 
-LogFile := A_Temp "\" A_Args[1]
+LogFile := userDocsPath "\" A_Args[1]
 UpdateSettings
 Recording := false
 Playing := false
