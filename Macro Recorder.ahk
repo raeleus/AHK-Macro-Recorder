@@ -15,7 +15,7 @@ if (A_Args.Length < 2) {
 }
 
 LogFile := A_Temp "\" A_Args[1]
-UpdateSettings
+UpdateSettings()
 Recording := false
 Playing := false
 ActionKey := A_Args[2]
@@ -205,7 +205,7 @@ EditKeyAction() {
   } catch OSError as err {
     
   }
-  Run("`"" "C:\Program Files (x86)\Notepad++\notepad++.exe`" `"" LogFile "`"")
+  Run("`"" EnvGet("LocalAppData") "\Programs\Microsoft VS Code\Code.exe`" `"" LogFile "`"")
   return
 }
 
