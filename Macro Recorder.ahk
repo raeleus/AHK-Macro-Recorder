@@ -54,7 +54,7 @@ ShowTip(s := "", pos := "y35", color := "Red|00FFFF") {
 
 KeyAction(HotkeyName) {
   if (Recording) {
-    Stop
+    Stop()
     return
   }
 
@@ -205,7 +205,7 @@ EditKeyAction() {
   } catch OSError as err {
     
   }
-  Run("`"" EnvGet("LocalAppData") "\Programs\Microsoft VS Code\Code.exe`" `"" LogFile "`"")
+  Run("`"" "C:\Program Files (x86)\Notepad++\notepad++.exe`" `"" LogFile "`"")
   return
 }
 
