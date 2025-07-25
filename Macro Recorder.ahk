@@ -15,7 +15,7 @@ if (A_Args.Length < 2) {
 }
 
 LogFile := A_Temp "\" A_Args[1]
-UpdateSettings
+UpdateSettings()
 Recording := false
 Playing := false
 ActionKey := A_Args[2]
@@ -54,7 +54,7 @@ ShowTip(s := "", pos := "y35", color := "Red|00FFFF") {
 
 KeyAction(HotkeyName) {
   if (Recording) {
-    Stop
+    Stop()
     return
   }
 
