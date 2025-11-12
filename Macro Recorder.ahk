@@ -135,7 +135,7 @@ UpdateSettings() {
     LogFileObject.Close()
   } else {
     MouseMode := "screen"
-    RecordSleep := "true"
+    RecordSleep := "false"
     SetKeyDelayValue := 30
   }
 
@@ -145,7 +145,7 @@ UpdateSettings() {
   if (RecordSleep != "true" && RecordSleep != "false")
     RecordSleep := "false"
 
-  if (!IsNumber(SetKeyDelayValue) || SetKeyDelayValue < 0)
+  if (!IsNumber(SetKeyDelayValue) || SetKeyDelayValue < 30 || SetKeyDelayValue > 5000)
     SetKeyDelayValue := 30
 }
 
@@ -156,7 +156,7 @@ Stop() {
     if (LogArr.Length > 0) {
       UpdateSettings()
 
-      s := ";Press " ActionKey " to play. Hold to record. Long hold for settings`n;#####SETTINGS#####`n;What is the preferred method of recording mouse coordinates (screen,window,relative)`n;MouseMode=" MouseMode "`n;Record sleep between input actions (true,false)`n;RecordSleep=" RecordSleep "`n;Delay in milliseconds between keystrokes (0-1000)`n;SetKeyDelay=" SetKeyDelayValue "`nLoop(1)`n{`n`nStartingValue := 0`ni := RegRead(`"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`", StartingValue)`nRegWrite(i + 1, `"REG_DWORD`", `"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`")`n`nSetKeyDelay(" SetKeyDelayValue ")`nSendMode(`"Event`")`nSetTitleMatchMode(2)"
+      s := ";Press " ActionKey " to play. Hold to record. Long hold to edit`n;#####SETTINGS#####`n;What is the preferred method of recording mouse coordinates (screen,window,relative)`n;MouseMode=" MouseMode "`n;Record sleep between input actions (true,false)`n;RecordSleep=" RecordSleep "`n;Delay in milliseconds between keystrokes (30-5000)`n;SetKeyDelay=" SetKeyDelayValue "`nLoop(1)`n{`n`nStartingValue := 0`ni := RegRead(`"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`", StartingValue)`nRegWrite(i + 1, `"REG_DWORD`", `"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`")`n`nSetKeyDelay(" SetKeyDelayValue ")`nSendMode(`"Event`")`nSetTitleMatchMode(2)"
 
       if (MouseMode == "window") {
         s .= "`n;CoordMode(`"Mouse`", `"Screen`")`nCoordMode(`"Mouse`", `"Window`")`n"
@@ -237,13 +237,11 @@ ShowSettingsGUI() {
 
   ; Buttons
   settingsUI.AddText("w220", "")
-  okBtn := settingsUI.AddButton("Default w100", "Apply")
-  saveScriptBtn := settingsUI.AddButton("w100 x+10", "Save as Script")
+  okBtn := settingsUI.AddButton("Default w220", "Apply")
   settingsUI.AddText("w220", "")
-  showSourceBtn := settingsUI.AddButton("w220", "Show Source")
+  showSourceBtn := settingsUI.AddButton("xm w220", "Show Source / Edit Recording")
 
   okBtn.OnEvent("Click", (*) => ApplySettings())
-  saveScriptBtn.OnEvent("Click", (*) => SaveAsScript())
   showSourceBtn.OnEvent("Click", (*) => ShowSource())
 
   settingsUI.Show("w260")
@@ -255,8 +253,8 @@ ShowSettingsGUI() {
     SetKeyDelayValue := keyDelayEdit.Value != "" ? Integer(keyDelayEdit.Value) : 30
 
     ; Validate
-    if (SetKeyDelayValue < 0)
-      SetKeyDelayValue := 0
+    if (SetKeyDelayValue < 30)
+      SetKeyDelayValue := 30
     if (SetKeyDelayValue > 5000)
       SetKeyDelayValue := 5000
 
@@ -267,37 +265,6 @@ ShowSettingsGUI() {
 
     settingsUI.Destroy()
     MsgBox("Settings applied!`n`nMouseMode: " MouseMode "`nRecordSleep: " RecordSleep "`nSetKeyDelay: " SetKeyDelayValue "ms", "Settings Updated", 64)
-  }
-
-  SaveAsScript() {
-    ; Ask for filename
-    newFile := FileSelect("S16", A_ScriptDir "\Macro Recorder Custom.ahk", "Save Macro Recorder Script", "AutoHotkey Scripts (*.ahk)")
-    if (newFile = "")
-      return
-
-    ; Add .ahk extension if missing
-    if (!InStr(newFile, ".ahk"))
-      newFile .= ".ahk"
-
-    ; Update settings from GUI
-    MouseMode := ["screen", "window", "relative"][mouseModeDD.Value]
-    RecordSleep := recordSleepChk.Value ? "true" : "false"
-    SetKeyDelayValue := keyDelayEdit.Value != "" ? Integer(keyDelayEdit.Value) : 30
-
-    ; Read current script
-    scriptContent := FileRead(A_ScriptFullPath)
-
-    ; Replace default values in the script
-    scriptContent := RegExReplace(scriptContent, "(MouseMode := )`"[^`"]+`"", "$1`"" MouseMode "`"")
-    scriptContent := RegExReplace(scriptContent, "(RecordSleep := )`"[^`"]+`"", "$1`"" RecordSleep "`"")
-    scriptContent := RegExReplace(scriptContent, "(SetKeyDelayValue := )\d+", "$1" SetKeyDelayValue)
-
-    ; Write new script
-    FileDelete(newFile)
-    FileAppend(scriptContent, newFile, "UTF-8")
-
-    settingsUI.Destroy()
-    MsgBox("New macro recorder script saved to:`n" newFile, "Script Saved", 64)
   }
 
   ShowSource() {
