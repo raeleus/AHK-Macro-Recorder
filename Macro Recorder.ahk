@@ -20,6 +20,7 @@ Recording := false
 Playing := false
 ActionKey := A_Args[2]
 SetKeyDelayValue := 30  ; Default key delay in milliseconds
+SleepDurationValue := 30  ; Default uniform sleep duration in milliseconds
 
 Hotkey(ActionKey, KeyAction)
 return
@@ -117,7 +118,7 @@ RecordScreen() {
 }
 
 UpdateSettings() {
-  global MouseMode, RecordSleep, SetKeyDelayValue
+  global MouseMode, RecordSleep, SetKeyDelayValue, SleepDurationValue
   if (FileExist(LogFile)) {
     LogFileObject := FileOpen(LogFile, "r")
 
@@ -132,11 +133,15 @@ UpdateSettings() {
     LogFileObject.ReadLine()
     SetKeyDelayValue := RegExReplace(LogFileObject.ReadLine(), ".*=")
 
+    LogFileObject.ReadLine()
+    SleepDurationValue := RegExReplace(LogFileObject.ReadLine(), ".*=")
+
     LogFileObject.Close()
   } else {
     MouseMode := "screen"
     RecordSleep := "false"
     SetKeyDelayValue := 30
+    SleepDurationValue := 30
   }
 
   if (MouseMode != "screen" && MouseMode != "window" && MouseMode != "relative")
@@ -145,8 +150,17 @@ UpdateSettings() {
   if (RecordSleep != "true" && RecordSleep != "false")
     RecordSleep := "false"
 
-  if (!IsNumber(SetKeyDelayValue) || SetKeyDelayValue < 30 || SetKeyDelayValue > 5000)
+  ; SetKeyDelay is now limited to 30 or 150 via radio buttons
+  if (SetKeyDelayValue != 30 && SetKeyDelayValue != 150)
     SetKeyDelayValue := 30
+
+  ; SleepDuration validation - clamp to range
+  if (!IsNumber(SleepDurationValue))
+    SleepDurationValue := 30
+  else if (SleepDurationValue < 30)
+    SleepDurationValue := 30
+  else if (SleepDurationValue > 5000)
+    SleepDurationValue := 5000
 }
 
 Stop() {
@@ -156,7 +170,7 @@ Stop() {
     if (LogArr.Length > 0) {
       UpdateSettings()
 
-      s := ";Press " ActionKey " to play. Hold to record. Long hold to edit`n;#####SETTINGS#####`n;What is the preferred method of recording mouse coordinates (screen,window,relative)`n;MouseMode=" MouseMode "`n;Record sleep between input actions (true,false)`n;RecordSleep=" RecordSleep "`n;Delay in milliseconds between keystrokes (30-5000)`n;SetKeyDelay=" SetKeyDelayValue "`nLoop(1)`n{`n`nStartingValue := 0`ni := RegRead(`"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`", StartingValue)`nRegWrite(i + 1, `"REG_DWORD`", `"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`")`n`nSetKeyDelay(" SetKeyDelayValue ")`nSendMode(`"Event`")`nSetTitleMatchMode(2)"
+      s := ";Press " ActionKey " to play. Hold to record. Long hold to edit`n;#####SETTINGS#####`n;What is the preferred method of recording mouse coordinates (screen,window,relative)`n;MouseMode=" MouseMode "`n;Record sleep between input actions (true,false)`n;RecordSleep=" RecordSleep "`n;Delay in milliseconds between keystrokes (30-5000)`n;SetKeyDelay=" SetKeyDelayValue "`n;Uniform sleep duration in milliseconds when RecordSleep is false (30-5000)`n;SleepDuration=" SleepDurationValue "`nLoop(1)`n{`n`nStartingValue := 0`ni := RegRead(`"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`", StartingValue)`nRegWrite(i + 1, `"REG_DWORD`", `"HKEY_CURRENT_USER\SOFTWARE\`" A_ScriptName, `"i`")`n`nSetKeyDelay(" SetKeyDelayValue ")`nSendMode(`"Event`")`nSetTitleMatchMode(2)"
 
       if (MouseMode == "window") {
         s .= "`n;CoordMode(`"Mouse`", `"Screen`")`nCoordMode(`"Mouse`", `"Window`")`n"
@@ -212,51 +226,163 @@ EditKeyAction() {
 }
 
 ShowSettingsGUI() {
-  global MouseMode, RecordSleep, SetKeyDelayValue, LogFile
+  global MouseMode, RecordSleep, SetKeyDelayValue, SleepDurationValue, LogFile
 
   ; Read current settings
   UpdateSettings()
 
-  ; Create GUI
-  settingsUI := Gui(, "Macro Recorder Settings")
-  settingsUI.SetFont("s10")
+  ; Create GUI with modern styling
+  settingsUI := Gui("-MinimizeBox", "Macro Recorder Settings")
+  settingsUI.SetFont("s9", "Segoe UI")
 
   ; Mouse Mode setting
-  settingsUI.AddText("w220", "Mouse Coordinate Mode:")
-  mouseModeDD := settingsUI.AddDropDownList("w220 Choose" (MouseMode = "screen" ? "1" : MouseMode = "window" ? "2" : "3"), ["Screen", "Window", "Relative"])
+  settingsUI.AddText("x31 y16 w103 h23 +0x200", "MouseMode")
+  mouseModeDD := settingsUI.AddDropDownList("x150 y16 w120 Choose" (MouseMode = "screen" ? "1" : MouseMode = "window" ? "2" : "3"), ["screen", "window", "relative"])
+
+  ; Help button aligned with Fixed Delay frame
+  helpBtn := settingsUI.AddButton("x310 y16 w40 h23", "? >")
 
   ; Record Sleep setting
-  settingsUI.AddText("w220 Section", "")
-  recordSleepChk := settingsUI.AddCheckbox("w220", "Record Sleep Delays Between Actions")
+  settingsUI.AddText("x31 y48 w120 h23 +0x200", "Enable RecordSleep")
+  recordSleepChk := settingsUI.AddCheckbox("x150 y48 w15 h23", "")
   recordSleepChk.Value := (RecordSleep = "true")
 
-  ; SetKeyDelay setting
-  settingsUI.AddText("w220", "")
-  settingsUI.AddText("w220", "Delay Between Keystrokes (ms):")
-  keyDelayEdit := settingsUI.AddEdit("w220 Number", SetKeyDelayValue)
+  ; Fixed Delay GroupBox
+  settingsUI.AddGroupBox("x23 y85 w327 h94", "Fixed Delay")
+
+  ; SleepDuration setting (uniform sleep when RecordSleep is false)
+  sleepDurationLabel := settingsUI.AddText("x40 y113 w110 h23 +0x200", "SleepDuration (ms)")
+  sleepDurationEdit := settingsUI.AddEdit("x150 y113 w64 h21 Number", SleepDurationValue)
+  sleepDurationUpDown := settingsUI.AddUpDown("x214 y113 w17 h21 -16 Range30-5000", SleepDurationValue)
+  sleepDurationUpDown.OnEvent("Change", (*) => CustomIncrement(sleepDurationEdit, sleepDurationUpDown))
+
+  ; SetKeyDelay setting (keystroke delay) - Radio buttons
+  keystrokeDelayLabel := settingsUI.AddText("x40 y137 w107 h23 +0x200", "KeystrokeDelay")
+  keyDelay30Radio := settingsUI.AddRadio("x150 y137 w87 h23" (SetKeyDelayValue <= 30 ? " Checked" : ""), "Fast (30ms)")
+  keyDelay150Radio := settingsUI.AddRadio("x238 y137 w92 h23" (SetKeyDelayValue > 30 ? " Checked" : ""), "Slow (150ms)")
 
   ; Buttons
-  settingsUI.AddText("w220", "")
-  okBtn := settingsUI.AddButton("Default w220", "Apply")
-  settingsUI.AddText("w220", "")
-  showSourceBtn := settingsUI.AddButton("xm w220", "Show Source / Edit Recording")
+  showSourceBtn := settingsUI.AddButton("x61 y210 w106 h23", "Edit in VS Code")
+  okBtn := settingsUI.AddButton("x213 y210 w106 h23", "Apply")
 
+  ; Help Panel (initially hidden)
+  helpSeparator := settingsUI.AddText("x425 y10 w2 h247 +0x10", "")  ; Vertical line
+  helpTextCtrl := settingsUI.AddEdit("x360 y16 w290 h242 +ReadOnly", "")
+  helpTextCtrl.Value := "
+  (
+𝗠𝗼𝘂𝘀𝗲𝗠𝗼𝗱𝗲:
+• screen - absolute screen coordinates
+• window - relative to active window
+• relative - relative to starting position
+
+𝗥𝗲𝗰𝗼𝗿𝗱𝗦𝗹𝗲𝗲𝗽: use recording's timings (at 2X speed)
+
+𝗙𝗶𝘅𝗲𝗱 𝗗𝗲𝗹𝗮𝘆:
+▸ SleepDuration - delay between actions.
+▸ KeystrokeDelay - delay for keystrokes.
+
+Settings reset to default on reload.
+  )"
+
+  ; Hide help panel initially
+  helpExpanded := false
+  helpSeparator.Visible := false
+  helpTextCtrl.Visible := false
+
+  ; Set up event handler for RecordSleep checkbox to toggle Fixed Delay controls
+  recordSleepChk.OnEvent("Click", (*) => ToggleFixedDelayControls())
+
+  ; Initialize Fixed Delay controls state
+  ToggleFixedDelayControls()
+
+  helpBtn.OnEvent("Click", (*) => ToggleHelpPanel())
   okBtn.OnEvent("Click", (*) => ApplySettings())
   showSourceBtn.OnEvent("Click", (*) => ShowSource())
 
-  settingsUI.Show("w260")
+  settingsUI.Show("w373 h267")
+
+  ToggleHelpPanel() {
+    if (helpExpanded) {
+      ; Collapse help panel
+      settingsUI.Show("w373 h267")
+      helpSeparator.Visible := false
+      helpTextCtrl.Visible := false
+      helpBtn.Text := "? >"
+      helpExpanded := false
+    } else {
+      ; Expand help panel
+      settingsUI.Show("w660 h267")
+      helpSeparator.Visible := true
+      helpTextCtrl.Visible := true
+      helpBtn.Text := "? <"
+      helpExpanded := true
+    }
+  }
+
+  ToggleFixedDelayControls() {
+    ; When RecordSleep is ENABLED (checked), disable Fixed Delay controls
+    ; When RecordSleep is DISABLED (unchecked), enable Fixed Delay controls
+    isEnabled := !recordSleepChk.Value
+
+    sleepDurationLabel.Enabled := isEnabled
+    sleepDurationEdit.Enabled := isEnabled
+    sleepDurationUpDown.Enabled := isEnabled
+    keystrokeDelayLabel.Enabled := isEnabled
+    keyDelay30Radio.Enabled := isEnabled
+    keyDelay150Radio.Enabled := isEnabled
+  }
+
+  CustomIncrement(editCtrl, upDownCtrl) {
+    static prevValues := Map()
+
+    currentValue := editCtrl.Value != "" ? Integer(editCtrl.Value) : 30
+    ctrlID := upDownCtrl.Hwnd
+
+    ; Get previous value for this control
+    prevValue := prevValues.Has(ctrlID) ? prevValues[ctrlID] : currentValue
+
+    ; Determine direction
+    goingUp := upDownCtrl.Value > prevValue
+
+    ; Calculate new value based on custom increment rules
+    if (goingUp) {
+      if (currentValue < 50)
+        newValue := 50
+      else if (currentValue < 100)
+        newValue := 100
+      else if (currentValue < 5000)
+        newValue := Min(currentValue + 50, 5000)
+      else
+        newValue := 5000
+    } else {
+      if (currentValue > 100)
+        newValue := Max(currentValue - 50, 100)
+      else if (currentValue > 50)
+        newValue := 50
+      else
+        newValue := 30
+    }
+
+    ; Update both controls
+    editCtrl.Value := newValue
+    upDownCtrl.Value := newValue
+
+    ; Store current value for next comparison
+    prevValues[ctrlID] := newValue
+  }
 
   ApplySettings() {
     ; Update global settings
     MouseMode := ["screen", "window", "relative"][mouseModeDD.Value]
     RecordSleep := recordSleepChk.Value ? "true" : "false"
-    SetKeyDelayValue := keyDelayEdit.Value != "" ? Integer(keyDelayEdit.Value) : 30
+    SleepDurationValue := sleepDurationEdit.Value != "" ? Integer(sleepDurationEdit.Value) : 30
+    SetKeyDelayValue := keyDelay30Radio.Value ? 30 : 150
 
     ; Validate
-    if (SetKeyDelayValue < 30)
-      SetKeyDelayValue := 30
-    if (SetKeyDelayValue > 5000)
-      SetKeyDelayValue := 5000
+    if (SleepDurationValue < 30)
+      SleepDurationValue := 30
+    if (SleepDurationValue > 5000)
+      SleepDurationValue := 5000
 
     ; Update the LogFile if it exists
     if (FileExist(LogFile)) {
@@ -264,7 +390,8 @@ ShowSettingsGUI() {
     }
 
     settingsUI.Destroy()
-    MsgBox("Settings applied!`n`nMouseMode: " MouseMode "`nRecordSleep: " RecordSleep "`nSetKeyDelay: " SetKeyDelayValue "ms", "Settings Updated", 64)
+    keystrokeSpeed := SetKeyDelayValue == 30 ? "Fast (30ms)" : "Slow (150ms)"
+    MsgBox("Settings applied!`n`nMouseMode: " MouseMode "`nRecordSleep: " RecordSleep "`nSleepDuration: " SleepDurationValue "ms`nKeystrokeDelay: " keystrokeSpeed, "Settings Updated", 64)
   }
 
   ShowSource() {
@@ -307,7 +434,7 @@ ShowSettingsGUI() {
 }
 
 UpdateLogFileSettings() {
-  global MouseMode, RecordSleep, SetKeyDelayValue, LogFile
+  global MouseMode, RecordSleep, SetKeyDelayValue, SleepDurationValue, LogFile
 
   if (!FileExist(LogFile))
     return
@@ -320,6 +447,14 @@ UpdateLogFileSettings() {
   content := RegExReplace(content, ";RecordSleep=[^\r\n]+", ";RecordSleep=" RecordSleep)
   content := RegExReplace(content, ";SetKeyDelay=[^\r\n]+", ";SetKeyDelay=" SetKeyDelayValue)
   content := RegExReplace(content, "SetKeyDelay\(\d+\)", "SetKeyDelay(" SetKeyDelayValue ")")
+  content := RegExReplace(content, ";SleepDuration=[^\r\n]+", ";SleepDuration=" SleepDurationValue)
+
+  ; Update Sleep() calls based on RecordSleep setting
+  if (RecordSleep == "false") {
+    ; Replace all Sleep() values with uniform SleepDurationValue
+    content := RegExReplace(content, "Sleep\(\d+\)", "Sleep(" SleepDurationValue ")")
+  }
+  ; If RecordSleep is true, keep the recorded sleep values as they are
 
   ; Write back
   FileDelete(LogFile)
@@ -459,7 +594,7 @@ LogWindow() {
 }
 
 Log(str := "", Keyboard := false) {
-  global LogArr, RecordSleep
+  global LogArr, RecordSleep, SleepDurationValue
   static LastTime := 0
   t := A_TickCount
   Delay := (LastTime ? t - LastTime : 0)
@@ -473,7 +608,11 @@ Log(str := "", Keyboard := false) {
     return
   }
 
-  if (Delay > 200) 
-    LogArr.Push((RecordSleep == "false" ? ";" : "") "Sleep(" (Delay // 2) ")")
+  if (Delay > 200) {
+    if (RecordSleep == "true")
+      LogArr.Push("Sleep(" (Delay // 2) ")")
+    else
+      LogArr.Push("Sleep(" SleepDurationValue ")")
+  }
   LogArr.Push(Keyboard ? "Send `"{Blind}" str "`"" : str)
 }
